@@ -4,5 +4,6 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/research-methods-peer-review/', // 這一行非常重要，是讓 GitHub Pages 讀到路徑的關鍵
+  // 下面這一行是關鍵！沒有它，GitHub Pages 就會找不到檔案
+  base: '/research-methods-peer-review/',
 })
