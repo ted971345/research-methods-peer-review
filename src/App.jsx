@@ -3,9 +3,8 @@ import { BookOpen, CheckCircle, User, Award, Send, AlertCircle, Loader, ShieldCh
 
 /**
  * ==========================================
- * 老師的特別叮嚀：Google 表單設定區
+ * Google 表單設定
  * ==========================================
- * 請確認你的表單 ID 與 entry ID 是否正確對應。
  */
 
 const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfAAhNDUlwnqoyTNA6NcXG78UwcLT1mW90ln4zzFawOzheLgQ/formResponse";
@@ -16,8 +15,6 @@ const FORM_FIELDS = {
   totalScore: "entry.823041206",  // 總分
   details: "entry.1311753104"     // 完整評分細節 (JSON)
 };
-
-// ==========================================
 
 // 依據賴老師教材重新設計的五大指標 (v3.0)
 const CRITERIA = [
@@ -69,16 +66,21 @@ const App = () => {
   const [presenterName, setPresenterName] = useState('');
   const [scores, setScores] = useState({});
   const [comments, setComments] = useState({});
-  
+  const [iframeLoadedOnce, setIframeLoadedOnce] = useState(false);      // 用來忽略第一次 about:blank 載入
+  const [showValidationErrors, setShowValidationErrors] = useState(false); // 控制 textarea 紅框顯示
+
   // 用於提交表單的 hidden iframe ref
   const iframeRef = useRef(null);
   const formRef = useRef(null);
 
   // 處理分數變更
   const handleScoreChange = (criteriaId, value) => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return;
+
     setScores(prev => ({
       ...prev,
-      [criteriaId]: parseInt(value)
+      [criteriaId]: numericValue
     }));
   };
 
@@ -96,6 +98,7 @@ const App = () => {
       alert('同學，做研究要嚴謹，基本資料請填寫完整。');
       return;
     }
+    setShowValidationErrors(false);
     setStep('grading');
     window.scrollTo(0, 0);
   };
@@ -104,7 +107,7 @@ const App = () => {
   const calculateTotal = () => {
     let total = 0;
     CRITERIA.forEach(c => {
-      const score = scores[c.id] || 0;
+      const score = typeof scores[c.id] === 'number' ? scores[c.id] : 0;
       total += (score / 5) * c.weight;
     });
     return total.toFixed(1);
@@ -112,16 +115,33 @@ const App = () => {
 
   // 準備提交
   const handlePreSubmit = () => {
-    // 檢查是否所有項目都已評分
-    const allScored = CRITERIA.every(c => scores[c.id]);
+    // 讓所有未填欄位顯示紅框
+    setShowValidationErrors(true);
+
+    // 1. 檢查分數：是否所有項目都已評分（用「有沒有 key」而非 truthy）
+    const allScored = CRITERIA.every(c =>
+      Object.prototype.hasOwnProperty.call(scores, c.id)
+    );
+
     if (!allScored) {
       alert('還有項目沒打分數！請仔細檢查每一個評分環節。');
       return;
     }
 
+    // 2. 檢查評語：是否所有項目都填寫了建議
+    const allCommented = CRITERIA.every(
+      c => comments[c.id] && comments[c.id].trim().length > 0
+    );
+
+    if (!allCommented) {
+      alert('誒同學，你的「具體建議」是空白的耶！\n\n只打分數不給評語，就像花錢進場卻坐著滑手機，完全沒參與。\n\n請發揮你的批判性思考，多寫幾個字吧！加油！');
+      return;
+    }
+
     // 進入提交狀態
+    setIframeLoadedOnce(false);
     setStep('submitting');
-    
+
     // 等待一下確保 React 渲染出 hidden form 並且帶入數值，然後觸發提交
     setTimeout(() => {
       if (formRef.current) {
@@ -130,8 +150,15 @@ const App = () => {
     }, 500);
   };
 
-  // Iframe 載入完成後的處理 (視為提交成功)
+  // Iframe 載入完成後的處理
   const handleIframeLoad = () => {
+    // 第一次載入多半是空白 about:blank，需忽略
+    if (!iframeLoadedOnce) {
+      setIframeLoadedOnce(true);
+      return;
+    }
+
+    // 第二次載入才視為 Google Form 已回應
     if (step === 'submitting') {
       setStep('result');
       window.scrollTo(0, 0);
@@ -144,6 +171,8 @@ const App = () => {
     setPresenterName('');
     setScores({});
     setComments({});
+    setShowValidationErrors(false);
+    setIframeLoadedOnce(false);
   };
 
   // 產生要送出的資料物件 (JSON string)
@@ -173,7 +202,7 @@ const App = () => {
       </header>
 
       <main className="max-w-4xl mx-auto p-6">
-        
+
         {/* Step 1: Login / Info Entry */}
         {step === 'login' && (
           <div className="bg-white rounded-xl shadow-md p-8 border-l-4 border-blue-600 animate-fade-in">
@@ -255,7 +284,8 @@ const App = () => {
                       </div>
                     </div>
                     <div className="text-3xl font-bold text-blue-600 w-16 text-right pl-4">
-                      {scores[criteria.id] ? scores[criteria.id] : '-'} <span className="text-sm text-slate-400 font-normal">/5</span>
+                      {typeof scores[criteria.id] === 'number' ? scores[criteria.id] : '-'}{' '}
+                      <span className="text-sm text-slate-400 font-normal">/5</span>
                     </div>
                   </div>
 
@@ -270,7 +300,7 @@ const App = () => {
                       min="1"
                       max="5"
                       step="1"
-                      value={scores[criteria.id] || 0}
+                      value={typeof scores[criteria.id] === 'number' ? scores[criteria.id] : 1}
                       onChange={(e) => handleScoreChange(criteria.id, e.target.value)}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                     />
@@ -280,8 +310,8 @@ const App = () => {
                           key={num}
                           onClick={() => handleScoreChange(criteria.id, num)}
                           className={`flex-1 py-2 rounded-md text-sm font-bold transition transform active:scale-95 ${
-                            scores[criteria.id] === num 
-                              ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300 ring-offset-1' 
+                            scores[criteria.id] === num
+                              ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300 ring-offset-1'
                               : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
                           }`}
                         >
@@ -293,12 +323,19 @@ const App = () => {
 
                   {/* Comment Area */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-2">具體建議與回饋</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-2">
+                      具體建議與回饋 <span className="text-red-500">* (必填)</span>
+                    </label>
                     <textarea
                       value={comments[criteria.id] || ''}
                       onChange={(e) => handleCommentChange(criteria.id, e.target.value)}
                       placeholder={`請針對「${criteria.category}」給予建設性的評語...`}
-                      className="w-full p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none h-24 bg-slate-50 focus:bg-white"
+                      className={`w-full p-3 border rounded-lg text-sm transition resize-none h-24 focus:bg-white ${
+                        showValidationErrors &&
+                        !(comments[criteria.id] && comments[criteria.id].trim().length > 0)
+                          ? 'border-red-400 bg-red-50 focus:ring-2 focus:ring-red-400'
+                          : 'border-slate-200 focus:ring-2 focus:ring-blue-500 bg-slate-50'
+                      }`}
                     />
                   </div>
                 </div>
@@ -329,9 +366,9 @@ const App = () => {
             <h2 className="text-2xl font-bold text-slate-800 mb-2">資料傳輸中...</h2>
             <p className="text-slate-500">請稍候，系統正在將你的評分寫入資料庫。</p>
             <p className="text-slate-400 text-sm mt-4">請勿關閉視窗</p>
-            
+
             {/* HIDDEN FORM for Google Submission */}
-            <form 
+            <form
               ref={formRef}
               action={GOOGLE_FORM_ACTION_URL}
               method="POST"
@@ -343,11 +380,11 @@ const App = () => {
               <input name={FORM_FIELDS.totalScore} value={calculateTotal()} type="hidden" />
               <input name={FORM_FIELDS.details} value={getDetailsJson()} type="hidden" />
             </form>
-            
+
             {/* HIDDEN IFRAME to catch the response without page reload */}
-            <iframe 
+            <iframe
               ref={iframeRef}
-              name="hidden_iframe" 
+              name="hidden_iframe"
               title="hidden_iframe"
               style={{ display: 'none' }}
               onLoad={handleIframeLoad}
@@ -382,7 +419,9 @@ const App = () => {
                 </div>
                 <div className="col-span-2 bg-white p-3 rounded-lg border border-slate-100 mt-2">
                   <span className="text-slate-500 block text-xs mb-1">加權總分</span>
-                  <span className="font-black text-blue-600 text-2xl">{calculateTotal()} <span className="text-sm font-normal text-slate-400">/ 100</span></span>
+                  <span className="font-black text-blue-600 text-2xl">
+                    {calculateTotal()} <span className="text-sm font-normal text-slate-400">/ 100</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -393,7 +432,7 @@ const App = () => {
             >
               評下一位同學
             </button>
-            
+
             <div className="mt-8 bg-yellow-50 text-yellow-800 p-4 rounded-lg text-sm flex items-start gap-3 text-left border border-yellow-100">
               <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-yellow-600" />
               <p>系統提示：若網頁一直停留在上傳中，可能是網路不穩或表單 ID 設定有誤，請截圖並聯繫助教。</p>
@@ -402,7 +441,7 @@ const App = () => {
         )}
 
       </main>
-      
+
       <footer className="text-center py-8 text-slate-400 text-sm">
         <p>&copy; 2025 臺北市立大學 運動教育研究所 研究法課程</p>
       </footer>
