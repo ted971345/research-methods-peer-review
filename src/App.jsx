@@ -1,5 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { BookOpen, CheckCircle, User, Award, Send, AlertCircle, Loader, ShieldCheck, GitMerge, FileText } from 'lucide-react';
+import {
+  BookOpen,
+  CheckCircle,
+  User,
+  Award,
+  Send,
+  AlertCircle,
+  Loader,
+  ShieldCheck,
+  GitMerge,
+  FileText
+} from 'lucide-react';
 
 /**
  * ==========================================
@@ -7,7 +18,8 @@ import { BookOpen, CheckCircle, User, Award, Send, AlertCircle, Loader, ShieldCh
  * ==========================================
  */
 
-const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfAAhNDUlwnqoyTNA6NcXG78UwcLT1mW90ln4zzFawOzheLgQ/formResponse";
+const GOOGLE_FORM_ACTION_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSfAAhNDUlwnqoyTNA6NcXG78UwcLT1mW90ln4zzFawOzheLgQ/formResponse";
 
 const FORM_FIELDS = {
   reviewer: "entry.1730151782",   // 評論人姓名
@@ -24,7 +36,8 @@ const CRITERIA = [
     weight: 20,
     icon: <FileText className="w-5 h-5 text-blue-500" />,
     description: '研究動機是否採用「漏斗型架構」聚焦？變項定義是否具體？',
-    details: '檢核重點：是否展現「變項式思考」（清楚界定自變項X與依變項Y）？「名詞釋義」是否包含具體的「操作型定義」（如何測量），而不僅是解釋名詞？'
+    details:
+      '檢核重點：是否展現「變項式思考」（清楚界定自變項X與依變項Y）？「名詞釋義」是否包含具體的「操作型定義」（如何測量），而不僅是解釋名詞？'
   },
   {
     id: 'c2',
@@ -32,7 +45,8 @@ const CRITERIA = [
     weight: 20,
     icon: <BookOpen className="w-5 h-5 text-blue-500" />,
     description: '是否避免「流水帳」式的陳述？是否明確指出「研究缺口」(Research Gap)？',
-    details: '檢核重點：文獻回顧應具備批判性與對話性，而非單純摘要。是否從過去研究的不足（如：對象不同、理論觀點不同、方法限制）推導出本研究的必要性？'
+    details:
+      '檢核重點：文獻回顧應具備批判性與對話性，而非單純摘要。是否從過去研究的不足（如：對象不同、理論觀點不同、方法限制）推導出本研究的必要性？'
   },
   {
     id: 'c3',
@@ -40,7 +54,8 @@ const CRITERIA = [
     weight: 25,
     icon: <GitMerge className="w-5 h-5 text-blue-500" />,
     description: '架構圖邏輯是否清晰？抽樣方法是否具代表性？',
-    details: '檢核重點：研究架構圖的箭頭是否合理連結各變項？抽樣策略（如：分層、立意、滾雪球）是否符合研究目的？樣本數估算是否有依據？'
+    details:
+      '檢核重點：研究架構圖的箭頭是否合理連結各變項？抽樣策略（如：分層、立意、滾雪球）是否符合研究目的？樣本數估算是否有依據？'
   },
   {
     id: 'c4',
@@ -48,7 +63,8 @@ const CRITERIA = [
     weight: 25,
     icon: <ShieldCheck className="w-5 h-5 text-blue-500" />,
     description: '信效度檢驗是否完整？是否落實研究倫理？',
-    details: '檢核重點：工具是否說明預試程序及信效度標準（如 Cronbach\'s α）？倫理部分是否考量「易受傷害族群」？知情同意程序是否完整？風險與利益是否平衡？'
+    details:
+      '檢核重點：工具是否說明預試程序及信效度標準（如 Cronbach\'s α）？倫理部分是否考量「易受傷害族群」？知情同意程序是否完整？風險與利益是否平衡？'
   },
   {
     id: 'c5',
@@ -56,7 +72,8 @@ const CRITERIA = [
     weight: 10,
     icon: <User className="w-5 h-5 text-blue-500" />,
     description: '口頭發表是否條理分明？回應提問是否切中要點？',
-    details: '檢核重點：簡報能否在12至15分鐘內有效傳達研究精髓？面對同儕或老師的提問，能否引用文獻或理論基礎進行得宜的回應？'
+    details:
+      '檢核重點：簡報能否在12至15分鐘內有效傳達研究精髓？面對同儕或老師的提問，能否引用文獻或理論基礎進行得宜的回應？'
   }
 ];
 
@@ -66,12 +83,15 @@ const App = () => {
   const [presenterName, setPresenterName] = useState('');
   const [scores, setScores] = useState({});
   const [comments, setComments] = useState({});
-  const [iframeLoadedOnce, setIframeLoadedOnce] = useState(false);      // 用來忽略第一次 about:blank 載入
-  const [showValidationErrors, setShowValidationErrors] = useState(false); // 控制 textarea 紅框顯示
+  const [iframeLoadedOnce, setIframeLoadedOnce] = useState(false); // 忽略第一次 about:blank
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   // 用於提交表單的 hidden iframe ref
   const iframeRef = useRef(null);
   const formRef = useRef(null);
+
+  // ✅ 修法 A：新增一個 ref，做「超時保底」避免卡死
+  const submitTimeoutRef = useRef(null);
 
   // 處理分數變更
   const handleScoreChange = (criteriaId, value) => {
@@ -115,7 +135,6 @@ const App = () => {
 
   // 準備提交
   const handlePreSubmit = () => {
-    // 讓所有未填欄位顯示紅框
     setShowValidationErrors(true);
 
     // 1. 檢查分數：是否所有項目都已評分（用「有沒有 key」而非 truthy）
@@ -134,13 +153,22 @@ const App = () => {
     );
 
     if (!allCommented) {
-      alert('誒同學，你的「具體建議」是空白的耶！\n\n只打分數不給評語，就像花錢進場卻坐著滑手機，完全沒參與。\n\n請發揮你的批判性思考，多寫幾個字吧！加油！');
+      alert(
+        '誒同學，你的「具體建議」是空白的耶！\n\n只打分數不給評語，就像花錢進場卻坐著滑手機，完全沒參與。\n\n請發揮你的批判性思考，多寫幾個字吧！加油！'
+      );
       return;
     }
 
     // 進入提交狀態
     setIframeLoadedOnce(false);
     setStep('submitting');
+
+    // ✅ 修法 A：保底超時，避免 iframe 因 CSP/X-Frame-Options 等因素永遠不觸發第二次 onLoad
+    if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current);
+    submitTimeoutRef.current = setTimeout(() => {
+      setStep(prev => (prev === 'submitting' ? 'result' : prev));
+      window.scrollTo(0, 0);
+    }, 5000);
 
     // 等待一下確保 React 渲染出 hidden form 並且帶入數值，然後觸發提交
     setTimeout(() => {
@@ -158,15 +186,25 @@ const App = () => {
       return;
     }
 
-    // 第二次載入才視為 Google Form 已回應
-    if (step === 'submitting') {
-      setStep('result');
-      window.scrollTo(0, 0);
+    // ✅ 修法 A：只要 onLoad 真的來了，就清掉保底 timeout
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current);
+      submitTimeoutRef.current = null;
     }
+
+    // ✅ 修法 A：用 prev 避免狀態競態/重複切換
+    setStep(prev => (prev === 'submitting' ? 'result' : prev));
+    window.scrollTo(0, 0);
   };
 
   // 重置
   const resetForm = () => {
+    // ✅ 修法 A：重置時也要清掉 timeout（避免殘留影響下一次）
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current);
+      submitTimeoutRef.current = null;
+    }
+
     setStep('login');
     setPresenterName('');
     setScores({});
@@ -202,7 +240,6 @@ const App = () => {
       </header>
 
       <main className="max-w-4xl mx-auto p-6">
-
         {/* Step 1: Login / Info Entry */}
         {step === 'login' && (
           <div className="bg-white rounded-xl shadow-md p-8 border-l-4 border-blue-600 animate-fade-in">
@@ -228,6 +265,7 @@ const App = () => {
                   className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">報告者姓名 (被評人)</label>
                 <input
@@ -349,6 +387,7 @@ const App = () => {
               >
                 ← 返回修改姓名
               </button>
+
               <button
                 onClick={handlePreSubmit}
                 className="bg-green-600 hover:bg-green-700 text-white px-10 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition flex items-center gap-2"
@@ -398,6 +437,7 @@ const App = () => {
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
               <CheckCircle className="w-10 h-10" />
             </div>
+
             <h2 className="text-2xl font-bold text-slate-800 mb-2">評分提交成功！</h2>
             <p className="text-slate-600 mb-8">
               感謝你的認真評鑑，資料已成功存入雲端資料庫。
@@ -408,15 +448,18 @@ const App = () => {
                 <Award className="w-5 h-5 text-yellow-500" />
                 本次評分摘要
               </h3>
+
               <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
                 <div>
                   <span className="text-slate-500 block text-xs mb-1">評論人</span>
                   <span className="font-bold text-slate-900 text-base">{reviewerName}</span>
                 </div>
+
                 <div>
                   <span className="text-slate-500 block text-xs mb-1">被評人</span>
                   <span className="font-bold text-slate-900 text-base">{presenterName}</span>
                 </div>
+
                 <div className="col-span-2 bg-white p-3 rounded-lg border border-slate-100 mt-2">
                   <span className="text-slate-500 block text-xs mb-1">加權總分</span>
                   <span className="font-black text-blue-600 text-2xl">
@@ -439,7 +482,6 @@ const App = () => {
             </div>
           </div>
         )}
-
       </main>
 
       <footer className="text-center py-8 text-slate-400 text-sm">
